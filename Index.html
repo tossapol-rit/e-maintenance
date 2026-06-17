@@ -297,14 +297,17 @@
       
       try {
         // Initialize LIFF
-        // หมายเหตุ: ต้องระบุ LIFF ID ของคุณในการนำไปใช้งานจริง (ตัวอย่างใช้ ID สมมติ)
-        // await liff.init({ liffId: "YOUR_LIFF_ID" }); 
+        await liff.init({ liffId: "2010431753-OWCVKz0M" }); 
         
-        // จำลอง LIFF SDK และข้อมูลสำหรับการพัฒนา หากเปิดใน Browser ปกติ
-        // ในการทำงานจริงให้ uncomment liff.init และใช้ liff.getProfile()
-        const isLiffWorking = false; // เปลี่ยนเป็น true ถ้าใส่ LIFF ID แล้ว
+        const isLiffWorking = true; 
         
-        if (isLiffWorking && liff.isLoggedIn()) {
+        if (isLiffWorking) {
+          // ถ้าเปิดในบราวเซอร์ภายนอกแล้วยังไม่ได้ล็อกอิน ให้ทำการล็อกอินก่อน
+          if (!liff.isLoggedIn()) {
+            liff.login();
+            return; // หยุดทำงานก่อนจนกว่าจะล็อกอินเสร็จ
+          }
+
           const profile = await liff.getProfile();
           currentUser.lineUserId = profile.userId;
           document.getElementById('user-avatar').src = profile.pictureUrl;
