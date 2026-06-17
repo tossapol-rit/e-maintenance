@@ -82,6 +82,21 @@
     
     <!-- 1. Admin View -->
     <div id="admin-view" class="d-none">
+      
+      <!-- [เพิ่มใหม่] แถบจัดการโหมดการแจ้งเตือน (PUSH/PULL) -->
+      <div class="card mb-4 border-info">
+        <div class="card-body d-flex justify-content-between align-items-center">
+          <div>
+            <h6 class="fw-bold mb-1"><i class="fas fa-bell text-info me-2"></i>ตั้งค่าระบบแจ้งเตือน</h6>
+            <small class="text-muted" id="notif-mode-desc">โหมดปัจจุบัน: กำลังโหลด...</small>
+          </div>
+          <div class="form-check form-switch fs-4 mb-0">
+            <input class="form-check-input" type="checkbox" role="switch" id="notif-mode-switch" disabled>
+            <label class="form-check-label fs-6 fw-bold ms-2" id="notif-mode-label" for="notif-mode-switch">Loading</label>
+          </div>
+        </div>
+      </div>
+
       <div class="row">
         <!-- ฟอร์มสร้างงานใหม่ -->
         <div class="col-lg-4 mb-4">
@@ -350,6 +365,9 @@
     // 1. ADMIN FUNCTIONS
     // ==========================================
     function initAdminView() {
+      // โหลดและจัดการสถานะโหมดการแจ้งเตือน (PUSH/PULL)
+      initNotificationMode();
+
       // ดึงรายชื่อช่างมาใส่ Dropdown
       google.script.run.withSuccessHandler(function(techs) {
         const select = document.getElementById('assigned-tech');
@@ -420,6 +438,56 @@
           `;
         });
       }).getAllJobs();
+    }
+
+    // [เพิ่มใหม่] โหลดและจัดการการเปลี่ยนโหมดการแจ้งเตือน
+    function initNotificationMode() {
+      const toggle = document.getElementById('notif-mode-switch');
+      const label = document.getElementById('notif-mode-label');
+      const desc = document.getElementById('notif-mode-desc');
+      
+      // ดึงค่าเริ่มต้น
+      google.script.run.withSuccessHandler(function(mode) {
+        toggle.disabled = false;
+        updateNotificationUI(mode);
+      }).getNotificationMode();
+      
+      // ผูก Event การเปลี่ยนโหมด
+      toggle.addEventListener('change', function(e) {
+        toggle.disabled = true;
+        label.innerText = 'กำลังอัปเดต...';
+        
+        const newMode = this.checked ? 'PUSH' : 'PULL';
+        
+        google.script.run
+          .withSuccessHandler(function(res) {
+            toggle.disabled = false;
+            if (res.success) {
+               updateNotificationUI(res.mode);
+            }
+          })
+          .withFailureHandler(function(err) {
+            alert("Error: " + err);
+            toggle.checked = !toggle.checked; // คืนค่า switch กลับถ้าพัง
+            toggle.disabled = false;
+            updateNotificationUI(toggle.checked ? 'PUSH' : 'PULL');
+          })
+          .updateNotificationMode(newMode);
+      });
+
+      function updateNotificationUI(mode) {
+        if (mode === 'PUSH') {
+          toggle.checked = true;
+          label.innerText = 'PUSH';
+          label.className = 'form-check-label fs-6 fw-bold ms-2 text-success';
+          desc.innerText = 'โหมดปัจจุบัน: ยิงข้อความอัตโนมัติ (PUSH)';
+        } else {
+          toggle.checked = false;
+          label.innerText = 'PULL';
+          label.className = 'form-check-label fs-6 fw-bold ms-2 text-secondary';
+          desc.innerText = 'โหมดปัจจุบัน: ช่างกดดูงานเอง (PULL)';
+        }
+      }
     }
 
     // ==========================================

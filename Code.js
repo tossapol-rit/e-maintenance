@@ -182,6 +182,17 @@ function createNewJob(customerName, phone, desc, techId) {
     ];
     
     jobSheet.appendRow(newRow);
+    
+    // [เพิ่ม Logic PUSH/PULL Notification] ตรวจสอบโหมดก่อนส่ง LINE
+    var notifMode = getNotificationMode();
+    if (notifMode === 'PUSH') {
+      // TODO: เพิ่มโค้ดสำหรับส่ง LINE Messaging API ไปหาช่าง (techId) ตรงนี้
+      Logger.log("โหมด PUSH: ส่ง LINE แจ้งเตือนงานใหม่ให้ช่าง " + techId);
+    } else {
+      // โหมด PULL - ช่างต้องเข้ามากดดูงานเอง ไม่ต้องยิงข้อความ
+      Logger.log("โหมด PULL: บันทึกข้อมูลลงชีตเรียบร้อย (ข้ามการส่ง LINE)");
+    }
+    
     return { success: true, message: "สร้างงาน " + jobId + " สำเร็จ" };
   } catch (error) {
     Logger.log("Error in createNewJob: " + error.toString());
@@ -289,6 +300,65 @@ function approveBudget(jobId, isApproved, comment) {
     return { success: true, message: "บันทึกการพิจารณาอนุมัติเรียบร้อยแล้ว" };
   } catch (error) {
     Logger.log("Error in approveBudget: " + error.toString());
+    return { success: false, message: error.toString() };
+  }
+}
+
+// ==========================================
+// ส่วนเพิ่มเติม: จัดการโหมดการแจ้งเตือน (PUSH / PULL)
+// ==========================================
+
+// ฟังก์ชันดึงโหมดการแจ้งเตือนปัจจุบันจากแท็บ Settings
+function getNotificationMode() {
+  try {
+    var ss = getSpreadsheet();
+    var settingsSheet = ss.getSheetByName('Settings');
+    if (!settingsSheet) return "PUSH"; // ถ้ายังไม่มีแท็บให้ default เป็น PUSH
+    
+    var data = settingsSheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === 'Notification_Mode') {
+        return data[i][1]; // คืนค่า "PUSH" หรือ "PULL"
+      }
+    }
+    return "PUSH"; 
+  } catch (error) {
+    Logger.log("Error in getNotificationMode: " + error.toString());
+    return "PUSH"; 
+  }
+}
+
+// ฟังก์ชันอัปเดตโหมดการแจ้งเตือน
+function updateNotificationMode(mode) {
+  try {
+    var ss = getSpreadsheet();
+    var settingsSheet = ss.getSheetByName('Settings');
+    
+    // ถ้ายังไม่มีแท็บ Settings ให้สร้างใหม่
+    if (!settingsSheet) {
+      settingsSheet = ss.insertSheet('Settings');
+      settingsSheet.appendRow(['Setting_Name', 'Setting_Value', 'Description']);
+    }
+    
+    var data = settingsSheet.getDataRange().getValues();
+    var rowIndex = -1;
+    
+    for (var i = 1; i < data.length; i++) {
+      if (data[i][0] === 'Notification_Mode') {
+        rowIndex = i + 1; // ตำแหน่งแถวใน Sheet (1-index basis)
+        break;
+      }
+    }
+    
+    if (rowIndex !== -1) {
+      settingsSheet.getRange(rowIndex, 2).setValue(mode); // อัปเดตค่าเดิม
+    } else {
+      settingsSheet.appendRow(['Notification_Mode', mode, 'โหมดการแจ้งเตือน (PUSH หรือ PULL)']); // เพิ่มแถวใหม่
+    }
+    
+    return { success: true, mode: mode };
+  } catch (error) {
+    Logger.log("Error in updateNotificationMode: " + error.toString());
     return { success: false, message: error.toString() };
   }
 }
