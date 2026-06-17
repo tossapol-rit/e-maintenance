@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบแจ้งซ่อมออนไลน์ (E-Maintenance)</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <!-- Google Fonts (Sarabun สำหรับภาษาไทย) -->
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body {
+      background-color: #f8f9fa;
+      font-family: 'Sarabun', sans-serif;
+    }
+    .navbar {
+      background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .navbar-brand {
+      color: white !important;
+      font-weight: 600;
+    }
+    .card {
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+      transition: transform 0.2s;
+    }
+    .btn-primary {
+      background-color: #0d6efd;
+      border: none;
+      border-radius: 8px;
+    }
+    .nav-pills .nav-link.active {
+      border-radius: 8px;
+    }
+    /* Loading Screen Styles */
+    #loading-screen {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background-color: #ffffff;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+    .spinner-border {
+      width: 3rem; height: 3rem;
+      color: #0d6efd;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div class="spinner-border mb-3" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+    <h5 class="text-primary fw-bold" id="loading-text">กำลังเข้าสู่ระบบ...</h5>
+  </div>
+
+  <!-- Navbar -->
+  <nav class="navbar navbar-expand-lg mb-4">
+    <div class="container">
+      <span class="navbar-brand">
+        <i class="fas fa-tools me-2"></i> E-Maintenance
+      </span>
+      <div class="d-flex text-white align-items-center">
+        <img id="user-avatar" src="" alt="Profile" class="rounded-circle d-none me-2" width="35" height="35">
+        <span id="user-name" class="fw-medium"></span>
+        <span id="user-role-badge" class="badge bg-light text-primary ms-2 d-none"></span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container pb-5">
+    
+    <!-- 1. Admin View -->
+    <div id="admin-view" class="d-none">
+      <div class="row">
+        <!-- ฟอร์มสร้างงานใหม่ -->
+        <div class="col-lg-4 mb-4">
+          <div class="card h-100">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-0">
+              <h5 class="fw-bold"><i class="fas fa-plus-circle text-primary me-2"></i>เปิดงานซ่อมใหม่</h5>
+            </div>
+            <div class="card-body">
+              <form id="new-job-form">
+                <div class="mb-3">
+                  <label class="form-label">ชื่อลูกค้า</label>
+                  <input type="text" class="form-control" id="customer-name" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">เบอร์โทรศัพท์</label>
+                  <input type="tel" class="form-control" id="customer-phone" required>
+                </div>
+                <div class="mb-3">
+                  <label class="form-label">รายละเอียดปัญหา</label>
+                  <textarea class="form-control" id="issue-desc" rows="3" required></textarea>
+                </div>
+                <div class="mb-4">
+                  <label class="form-label">มอบหมายช่าง</label>
+                  <select class="form-select" id="assigned-tech" required>
+                    <option value="">-- เลือกช่าง --</option>
+                  </select>
+                </div>
+                <button type="submit" class="btn btn-primary w-100 py-2 fw-medium" id="btn-create-job">
+                  บันทึกและเปิดงาน
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- ตารางสรุปงานทั้งหมด -->
+        <div class="col-lg-8">
+          <div class="card h-100">
+            <div class="card-header bg-white border-bottom-0 pt-4 pb-0 d-flex justify-content-between align-items-center">
+              <h5 class="fw-bold"><i class="fas fa-list text-primary me-2"></i>รายการงานทั้งหมด</h5>
+              <button class="btn btn-sm btn-outline-primary" onclick="loadAllJobs()">
+                <i class="fas fa-sync-alt"></i> รีเฟรช
+              </button>
+            </div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Job ID</th>
+                      <th>ลูกค้า</th>
+                      <th>สถานะงาน</th>
+                      <th>ช่างผู้รับผิดชอบ</th>
+                      <th>สถานะงบประมาณ</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admin-jobs-table">
+                    <tr><td colspan="5" class="text-center">กำลังโหลดข้อมูล...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. Technician View -->
+    <div id="tech-view" class="d-none">
+      <ul class="nav nav-pills nav-fill mb-4 bg-white p-2 rounded shadow-sm" id="tech-tabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active fw-medium" id="tab-new" data-bs-toggle="pill" data-bs-target="#content-new" type="button" role="tab">งานที่ได้รับมอบหมาย</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link fw-medium" id="tab-progress" data-bs-toggle="pill" data-bs-target="#content-progress" type="button" role="tab">งานที่กำลังดำเนินการ</button>
+        </li>
+      </ul>
+
+      <div class="tab-content" id="tech-tab-content">
+        <!-- งานที่ได้รับมอบหมาย (สถานะ Open) -->
+        <div class="tab-pane fade show active" id="content-new" role="tabpanel">
+          <div id="tech-new-jobs-container" class="row">
+            <div class="col-12 text-center text-muted py-4">กำลังโหลดข้อมูล...</div>
+          </div>
+        </div>
+        <!-- งานที่กำลังดำเนินการ (สถานะ In Progress) -->
+        <div class="tab-pane fade" id="content-progress" role="tabpanel">
+          <div id="tech-progress-jobs-container" class="row">
+            <div class="col-12 text-center text-muted py-4">กำลังโหลดข้อมูล...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Executive View -->
+    <div id="exec-view" class="d-none">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 class="fw-bold mb-0"><i class="fas fa-file-signature text-primary me-2"></i>รายการขออนุมัติงบประมาณ</h4>
+        <a href="#" class="btn btn-outline-primary"><i class="fas fa-chart-pie me-1"></i> ดูแดชบอร์ดสรุปผล</a>
+      </div>
+      
+      <div class="row" id="exec-pending-jobs-container">
+        <div class="col-12 text-center text-muted py-4">กำลังโหลดข้อมูล...</div>
+      </div>
+    </div>
+
+    <!-- UI ที่แสดงเมื่อไม่พบสิทธิ์ -->
+    <div id="unauthorized-view" class="d-none text-center py-5">
+      <i class="fas fa-lock text-danger fa-4x mb-3"></i>
+      <h3 class="fw-bold">คุณไม่มีสิทธิ์เข้าถึงระบบนี้</h3>
+      <p class="text-muted">กรุณาติดต่อผู้ดูแลระบบเพื่อขอเพิ่มสิทธิ์การใช้งาน</p>
+    </div>
+
+  </div>
+
+  <!-- Modal สำหรับอัปเดตงาน (ช่าง) -->
+  <div class="modal fade" id="updateJobModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold" id="updateJobModalLabel">อัปเดตงานซ่อม</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <form id="update-job-form">
+            <input type="hidden" id="update-job-id">
+            <input type="hidden" id="update-target-status">
+            
+            <div class="mb-3">
+              <label class="form-label">ถ่ายรูปหน้างาน (จำเป็น)</label>
+              <input type="file" class="form-control" id="update-photo" accept="image/*" capture="environment">
+            </div>
+            
+            <div class="mb-3">
+              <label class="form-label">รายละเอียด/บันทึกการซ่อม</label>
+              <textarea class="form-control" id="update-note" rows="2"></textarea>
+            </div>
+            
+            <div class="mb-3" id="cost-input-container">
+              <label class="form-label">ค่าอะไหล่/ค่าใช้จ่ายเพิ่มเติม (บาท)</label>
+              <input type="number" class="form-control" id="update-cost" value="0" min="0">
+              <small class="text-muted">หากระบุยอดเงินเกิน 0 จะต้องรออนุมัติจากผู้บริหาร</small>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+          <button type="button" class="btn btn-primary" id="btn-save-update">บันทึกและอัปเดตสถานะ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal สำหรับอนุมัติงบ (ผู้บริหาร) -->
+  <div class="modal fade" id="approveModal" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title fw-bold">พิจารณาอนุมัติงบประมาณ</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" id="approve-job-id">
+          <div class="mb-3">
+            <label class="form-label">ความคิดเห็นจากผู้บริหาร (ระบุหรือไม่ก็ได้)</label>
+            <textarea class="form-control" id="approve-comment" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer justify-content-center">
+          <button type="button" class="btn btn-danger w-45" onclick="submitApproval(false)">ไม่อนุมัติ</button>
+          <button type="button" class="btn btn-success w-45" onclick="submitApproval(true)">อนุมัติงบ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <!-- LINE LIFF SDK -->
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  
+  <script>
+    // ตัวแปรเก็บข้อมูล User
+    let currentUser = {
+      lineUserId: '',
+      role: '',
+      info: null
+    };
+
+    // ตัวแปร Modal
+    let updateJobModalInstance;
+    let approveModalInstance;
+
+    // เริ่มการทำงานเมื่อโหลดหน้าเว็บ
+    document.addEventListener('DOMContentLoaded', async () => {
+      updateJobModalInstance = new bootstrap.Modal(document.getElementById('updateJobModal'));
+      approveModalInstance = new bootstrap.Modal(document.getElementById('approveModal'));
+      
+      try {
+        // Initialize LIFF
+        // หมายเหตุ: ต้องระบุ LIFF ID ของคุณในการนำไปใช้งานจริง (ตัวอย่างใช้ ID สมมติ)
+        // await liff.init({ liffId: "YOUR_LIFF_ID" }); 
+        
+        // จำลอง LIFF SDK และข้อมูลสำหรับการพัฒนา หากเปิดใน Browser ปกติ
+        // ในการทำงานจริงให้ uncomment liff.init และใช้ liff.getProfile()
+        const isLiffWorking = false; // เปลี่ยนเป็น true ถ้าใส่ LIFF ID แล้ว
+        
+        if (isLiffWorking && liff.isLoggedIn()) {
+          const profile = await liff.getProfile();
+          currentUser.lineUserId = profile.userId;
+          document.getElementById('user-avatar').src = profile.pictureUrl;
+          document.getElementById('user-avatar').classList.remove('d-none');
+        } else {
+          // Mock data สำหรับการทดสอบ
+          currentUser.lineUserId = 'U1234567890abcdef1234567890abcdef'; // ใส่ LINE User ID ที่มีในระบบเพื่อทดสอบ
+        }
+        
+        // เรียก Apps Script เพื่อเช็ก Role
+        google.script.run
+          .withSuccessHandler(onRoleChecked)
+          .withFailureHandler(onError)
+          .checkUserRole(currentUser.lineUserId);
+
+      } catch (err) {
+        onError("การเชื่อมต่อ LINE ผิดพลาด: " + err.message);
+      }
+    });
+
+    // เมื่อตรวจสอบสิทธิ์เสร็จ
+    function onRoleChecked(response) {
+      document.getElementById('loading-screen').classList.add('d-none');
+      
+      if (!response || response.role === 'Unknown') {
+        document.getElementById('unauthorized-view').classList.remove('d-none');
+        return;
+      }
+      
+      currentUser.role = response.role;
+      currentUser.info = response.info;
+      
+      // อัปเดต UI Navbar
+      document.getElementById('user-name').innerText = currentUser.info.name;
+      const roleBadge = document.getElementById('user-role-badge');
+      roleBadge.innerText = currentUser.role;
+      roleBadge.classList.remove('d-none');
+
+      // แสดง View ตาม Role
+      if (currentUser.role === 'Admin') {
+        document.getElementById('admin-view').classList.remove('d-none');
+        initAdminView();
+      } else if (currentUser.role === 'Technician') {
+        document.getElementById('tech-view').classList.remove('d-none');
+        initTechView();
+      } else if (currentUser.role === 'Executive') {
+        document.getElementById('exec-view').classList.remove('d-none');
+        initExecView();
+      }
+    }
+
+    function onError(err) {
+      alert("เกิดข้อผิดพลาด: " + err);
+      document.getElementById('loading-text').innerText = "เกิดข้อผิดพลาด กรุณารีเฟรชหน้าเว็บ";
+    }
+
+    // ==========================================
+    // 1. ADMIN FUNCTIONS
+    // ==========================================
+    function initAdminView() {
+      // ดึงรายชื่อช่างมาใส่ Dropdown
+      google.script.run.withSuccessHandler(function(techs) {
+        const select = document.getElementById('assigned-tech');
+        techs.forEach(tech => {
+          const option = document.createElement('option');
+          option.value = tech.id;
+          option.textContent = tech.name;
+          select.appendChild(option);
+        });
+      }).getAllTechnicians();
+
+      loadAllJobs();
+
+      // จัดการฟอร์มเปิดงาน
+      document.getElementById('new-job-form').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btn-create-job');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> กำลังบันทึก...';
+
+        const name = document.getElementById('customer-name').value;
+        const phone = document.getElementById('customer-phone').value;
+        const desc = document.getElementById('issue-desc').value;
+        const techId = document.getElementById('assigned-tech').value;
+
+        google.script.run
+          .withSuccessHandler(function(res) {
+            alert(res.message);
+            if(res.success) {
+              document.getElementById('new-job-form').reset();
+              loadAllJobs();
+            }
+            btn.disabled = false;
+            btn.innerHTML = 'บันทึกและเปิดงาน';
+          })
+          .withFailureHandler(function(err) {
+            alert("Error: " + err);
+            btn.disabled = false;
+            btn.innerHTML = 'บันทึกและเปิดงาน';
+          })
+          .createNewJob(name, phone, desc, techId);
+      });
+    }
+
+    function loadAllJobs() {
+      const tbody = document.getElementById('admin-jobs-table');
+      tbody.innerHTML = '<tr><td colspan="5" class="text-center">กำลังโหลด...</td></tr>';
+      
+      google.script.run.withSuccessHandler(function(jobs) {
+        tbody.innerHTML = '';
+        if(jobs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center">ไม่มีข้อมูลงานซ่อม</td></tr>';
+          return;
+        }
+        
+        jobs.forEach(job => {
+          let statusBadge = getStatusBadgeHtml(job.status);
+          let approvalBadge = getApprovalBadgeHtml(job.approvalStatus);
+          
+          tbody.innerHTML += `
+            <tr>
+              <td><strong>${job.jobId}</strong></td>
+              <td>${job.customerName}<br><small class="text-muted">${job.phone}</small></td>
+              <td>${statusBadge}</td>
+              <td>${job.assignedTech}</td>
+              <td>${approvalBadge}</td>
+            </tr>
+          `;
+        });
+      }).getAllJobs();
+    }
+
+    // ==========================================
+    // 2. TECHNICIAN FUNCTIONS
+    // ==========================================
+    function initTechView() {
+      loadTechJobs();
+      
+      // ปุ่มบันทึกใน Modal
+      document.getElementById('btn-save-update').addEventListener('click', async function() {
+        const jobId = document.getElementById('update-job-id').value;
+        const targetStatus = document.getElementById('update-target-status').value;
+        const note = document.getElementById('update-note').value;
+        const cost = document.getElementById('update-cost').value;
+        const fileInput = document.getElementById('update-photo');
+        
+        let base64Photo = "";
+        if (fileInput.files.length > 0) {
+          const file = fileInput.files[0];
+          base64Photo = await getBase64(file);
+        } else {
+          // กำหนดให้รูปเป็น optional หรือ required ตามตรรกะธุรกิจ
+          // ในที่นี้ถ้าไม่มีการแจ้งเตือน
+          if(confirm("คุณไม่ได้แนบรูปถ่าย ยืนยันการบันทึกหรือไม่?")) {
+            // ดำเนินการต่อ
+          } else {
+            return;
+          }
+        }
+
+        const btn = document.getElementById('btn-save-update');
+        btn.disabled = true;
+        btn.innerHTML = 'กำลังบันทึกพิกัดและส่งข้อมูล...';
+
+        // ขอพิกัด GPS
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            function(position) {
+              sendUpdateToBackend(jobId, targetStatus, base64Photo, position.coords.latitude, position.coords.longitude, note, cost);
+            },
+            function(error) {
+              alert("ไม่สามารถดึงพิกัด GPS ได้ กรุณาเปิดใช้งาน Location Services");
+              // ยอมให้ส่งข้อมูลโดยไม่มีพิกัด
+              sendUpdateToBackend(jobId, targetStatus, base64Photo, "", "", note, cost);
+            },
+            { enableHighAccuracy: true, timeout: 10000 }
+          );
+        } else {
+          sendUpdateToBackend(jobId, targetStatus, base64Photo, "", "", note, cost);
+        }
+      });
+    }
+
+    function sendUpdateToBackend(jobId, status, photoStr, lat, lng, note, cost) {
+      google.script.run
+        .withSuccessHandler(function(res) {
+          alert(res.message);
+          updateJobModalInstance.hide();
+          loadTechJobs();
+          document.getElementById('btn-save-update').disabled = false;
+          document.getElementById('btn-save-update').innerHTML = 'บันทึกและอัปเดตสถานะ';
+          document.getElementById('update-job-form').reset();
+        })
+        .withFailureHandler(function(err) {
+          alert("Error: " + err);
+          document.getElementById('btn-save-update').disabled = false;
+          document.getElementById('btn-save-update').innerHTML = 'บันทึกและอัปเดตสถานะ';
+        })
+        .updateJobByTech(jobId, status, photoStr, lat, lng, note, cost);
+    }
+
+    function loadTechJobs() {
+      const containerNew = document.getElementById('tech-new-jobs-container');
+      const containerProgress = document.getElementById('tech-progress-jobs-container');
+      
+      containerNew.innerHTML = '<div class="col-12 text-center text-muted">กำลังโหลด...</div>';
+      containerProgress.innerHTML = '<div class="col-12 text-center text-muted">กำลังโหลด...</div>';
+
+      google.script.run.withSuccessHandler(function(jobs) {
+        containerNew.innerHTML = '';
+        containerProgress.innerHTML = '';
+        
+        let newCount = 0;
+        let progCount = 0;
+
+        jobs.forEach(job => {
+          if (job.status === 'Open') {
+            containerNew.innerHTML += createJobCardHtml(job, 'In Progress', 'กดรับงานและเริ่มซ่อม', 'primary');
+            newCount++;
+          } else if (job.status === 'In Progress') {
+            containerProgress.innerHTML += createJobCardHtml(job, 'Closed', 'ปิดงานซ่อม', 'success');
+            progCount++;
+          }
+        });
+
+        if(newCount === 0) containerNew.innerHTML = '<div class="col-12 text-center text-muted">ไม่มีงานใหม่</div>';
+        if(progCount === 0) containerProgress.innerHTML = '<div class="col-12 text-center text-muted">ไม่มีงานที่กำลังทำ</div>';
+        
+      }).getJobsByTech(currentUser.info.id);
+    }
+
+    function createJobCardHtml(job, nextStatus, btnText, btnColor) {
+      return `
+        <div class="col-md-6 mb-3">
+          <div class="card h-100 border-start border-${btnColor} border-4">
+            <div class="card-body">
+              <h6 class="text-primary fw-bold">${job.jobId}</h6>
+              <p class="mb-1"><strong>ลูกค้า:</strong> ${job.customerName}</p>
+              <p class="mb-1"><strong>โทร:</strong> <a href="tel:${job.phone}">${job.phone}</a></p>
+              <p class="mb-2 text-muted small">${job.desc}</p>
+              <button class="btn btn-${btnColor} btn-sm w-100 mt-2 fw-medium" 
+                onclick="openUpdateModal('${job.jobId}', '${nextStatus}')">
+                <i class="fas fa-camera me-1"></i> ${btnText}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function openUpdateModal(jobId, targetStatus) {
+      document.getElementById('update-job-id').value = jobId;
+      document.getElementById('update-target-status').value = targetStatus;
+      document.getElementById('update-photo').value = "";
+      document.getElementById('update-note').value = "";
+      document.getElementById('update-cost').value = "0";
+      
+      // ถ้าเปิดงาน (เปลี่ยนเป็น In Progress) ไม่ต้องโชว์กรอกราคา
+      if(targetStatus === 'In Progress') {
+        document.getElementById('cost-input-container').classList.add('d-none');
+      } else {
+        document.getElementById('cost-input-container').classList.remove('d-none');
+      }
+      
+      updateJobModalInstance.show();
+    }
+
+    // ==========================================
+    // 3. EXECUTIVE FUNCTIONS
+    // ==========================================
+    function initExecView() {
+      loadPendingJobs();
+    }
+
+    function loadPendingJobs() {
+      const container = document.getElementById('exec-pending-jobs-container');
+      container.innerHTML = '<div class="col-12 text-center text-muted">กำลังโหลด...</div>';
+      
+      google.script.run.withSuccessHandler(function(jobs) {
+        container.innerHTML = '';
+        if(jobs.length === 0) {
+          container.innerHTML = '<div class="col-12 text-center text-muted mt-4">ไม่มีรายการรออนุมัติงบประมาณ</div>';
+          return;
+        }
+
+        jobs.forEach(job => {
+          container.innerHTML += `
+            <div class="col-md-6 mb-4">
+              <div class="card h-100 border-warning">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h5 class="fw-bold mb-0">${job.jobId}</h5>
+                    <span class="badge bg-warning text-dark">รออนุมัติ</span>
+                  </div>
+                  <hr>
+                  <p class="mb-1"><strong>ลูกค้า:</strong> ${job.customerName}</p>
+                  <p class="mb-1"><strong>ปัญหา:</strong> ${job.desc}</p>
+                  <p class="mb-3"><strong>ช่าง:</strong> ${job.assignedTech}</p>
+                  <div class="alert alert-danger py-2 mb-3">
+                    <h5 class="fw-bold text-center mb-0 text-danger">ขอเบิกงบ: ฿${parseFloat(job.sparePartCost).toLocaleString()}</h5>
+                  </div>
+                  <button class="btn btn-primary w-100 fw-medium" onclick="openApproveModal('${job.jobId}')">
+                    <i class="fas fa-check-circle me-1"></i> พิจารณาอนุมัติ
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+      }).getPendingApprovalJobs();
+    }
+
+    function openApproveModal(jobId) {
+      document.getElementById('approve-job-id').value = jobId;
+      document.getElementById('approve-comment').value = "";
+      approveModalInstance.show();
+    }
+
+    function submitApproval(isApproved) {
+      const jobId = document.getElementById('approve-job-id').value;
+      const comment = document.getElementById('approve-comment').value;
+      
+      google.script.run
+        .withSuccessHandler(function(res) {
+          alert(res.message);
+          approveModalInstance.hide();
+          loadPendingJobs();
+        })
+        .withFailureHandler(function(err) {
+          alert("Error: " + err);
+        })
+        .approveBudget(jobId, isApproved, comment);
+    }
+
+    // ==========================================
+    // UTILITIES
+    // ==========================================
+    function getStatusBadgeHtml(status) {
+      if (status === 'Open') return '<span class="badge bg-secondary">Open</span>';
+      if (status === 'In Progress') return '<span class="badge bg-primary">In Progress</span>';
+      if (status === 'Closed') return '<span class="badge bg-success">Closed</span>';
+      return `<span class="badge bg-light text-dark">${status}</span>`;
+    }
+
+    function getApprovalBadgeHtml(status) {
+      if (status === 'No Request') return '<span class="badge bg-light text-secondary">No Request</span>';
+      if (status === 'Pending Approval') return '<span class="badge bg-warning text-dark">Pending</span>';
+      if (status === 'Approved') return '<span class="badge bg-success">Approved</span>';
+      if (status === 'Rejected') return '<span class="badge bg-danger">Rejected</span>';
+      return `<span class="badge bg-light text-dark">${status}</span>`;
+    }
+
+    // ฟังก์ชันแปลงไฟล์รูปเป็น Base64
+    function getBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+      });
+    }
+
+  </script>
+</body>
+</html>
