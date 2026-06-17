@@ -290,31 +290,33 @@
     let updateJobModalInstance;
     let approveModalInstance;
 
-    // เริ่มการทำงานเมื่อโหลดหน้าเว็บ
-    document.addEventListener('DOMContentLoaded', async () => {
-      updateJobModalInstance = new bootstrap.Modal(document.getElementById('updateJobModal'));
-      approveModalInstance = new bootstrap.Modal(document.getElementById('approveModal'));
+    // ฟังก์ชันเริ่มต้นระบบ
+    async function initSystem() {
+      try {
+        updateJobModalInstance = new bootstrap.Modal(document.getElementById('updateJobModal'));
+        approveModalInstance = new bootstrap.Modal(document.getElementById('approveModal'));
+      } catch(e) {
+        console.log("Modal error:", e);
+      }
       
       try {
         // Initialize LIFF
         await liff.init({ liffId: "2010431753-OWCVKz0M" }); 
         
-        const isLiffWorking = true; 
-        
-        if (isLiffWorking) {
-          // ถ้าเปิดในบราวเซอร์ภายนอกแล้วยังไม่ได้ล็อกอิน ให้ทำการล็อกอินก่อน
-          if (!liff.isLoggedIn()) {
-            liff.login();
-            return; // หยุดทำงานก่อนจนกว่าจะล็อกอินเสร็จ
-          }
+        // ถ้าเปิดในบราวเซอร์ภายนอกแล้วยังไม่ได้ล็อกอิน
+        if (!liff.isLoggedIn()) {
+          // ใช้ liff.login() โดยพยายามให้ redirect กลับมาที่หน้าเดิม
+          liff.login({ redirectUri: window.location.href });
+          return; // หยุดทำงานก่อนจนกว่าจะล็อกอินเสร็จ
+        }
 
-          const profile = await liff.getProfile();
-          currentUser.lineUserId = profile.userId;
-          document.getElementById('user-avatar').src = profile.pictureUrl;
-          document.getElementById('user-avatar').classList.remove('d-none');
-        } else {
-          // Mock data สำหรับการทดสอบ
-          currentUser.lineUserId = 'U1234567890abcdef1234567890abcdef'; // ใส่ LINE User ID ที่มีในระบบเพื่อทดสอบ
+        const profile = await liff.getProfile();
+        currentUser.lineUserId = profile.userId;
+        
+        const avatar = document.getElementById('user-avatar');
+        if (avatar) {
+          avatar.src = profile.pictureUrl;
+          avatar.classList.remove('d-none');
         }
         
         // เรียก Apps Script เพื่อเช็ก Role
@@ -324,9 +326,13 @@
           .checkUserRole(currentUser.lineUserId);
 
       } catch (err) {
-        onError("การเชื่อมต่อ LINE ผิดพลาด: " + err.message);
+        console.error("LIFF Init Error:", err);
+        onError("การเชื่อมต่อ LINE ผิดพลาด: " + (err.message || err));
       }
-    });
+    }
+
+    // เรียกใช้งานทันทีเมื่อโหลดสคริปต์
+    initSystem();
 
     // เมื่อตรวจสอบสิทธิ์เสร็จ
     function onRoleChecked(response) {
